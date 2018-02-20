@@ -1,0 +1,107 @@
+#!/bin/bash
+set -e
+set -o noclobber
+
+# TODO rely on passed GOPATH
+GOPATH=$(pwd)
+
+# figure out the buck prefix based on the $GOPATH relative to the buck root
+# eg: $GOPATH of /home/dev/project/third_party/go will result in a buck prefix of //third_party/go/src (because that's where the BUCK files will live relative to the root)
+pushd "$GOPATH" > /dev/null
+buck_root=$(buck root)
+# remove the buck root path from the path of $GOPATH so that we know the relative offset
+buck_prefix="/${GOPATH#$buck_root}/src"
+
+# get all non-standard library packages from the current $GOPATH
+function all_packages {
+  go list ... | xargs go list -f '{{if not .Standard}}{{.ImportPath}}{{end}}'
+}
+
+# get all non-standard library imports from the given package
+function non_std_imports {
+  package="$1"
+  # exclude an import of just 'C' because that means it's trying to import some C code
+  # TODO generate cgo_library rule for cgo files
+  # nastiness at the end because grep gives exit code of 1 if there are no selections (such as if there are no imports)
+  go list -f '{{join .Imports "\n"}}' "$package" | xargs go list -f '{{if not .Standard}}{{.ImportPath}}{{end}}' > /dev/null | { grep -wv "C" || true; }
+}
+
+# get the path to a package (where the BUCK file will be created)
+function package_path {
+  pkg=$1
+  # TODO make this more dynamic
+  echo "$GOPATH/src/$pkg"
+}
+
+# get the go source files for the given package
+function package_srcs {
+  pkg=$1
+  go list -f '{{ join .GoFiles "\n" }}' "$pkg"
+}
+
+# generate a go_library rule for a given platform as specified in $GOOS and $GOARCH
+function os_arch_lib {
+  # overwrite the BUCK file if it exists
+  echo "go_library("
+  # this will create a BUCK target with the name as the last part of the package
+  # eg: golang.org/x/oauth2 becomes oauth2
+  name=$(basename "$pkg")
+  echo "  name='$name',"
+  echo "  package_name='$pkg',"
+
+  # add the source files to BUCK
+  srcs=$(package_srcs "$pkg")
+  echo "  srcs=["
+  for src in $srcs
+  do
+    echo "    '$src',"
+  done
+  echo "  ],"
+
+  # add all the dependencies to BUCK
+  deps=$(non_std_imports "$pkg")
+  echo "  deps=["
+  for dep in $deps
+  do
+    # basename of the package is the BUCK target
+    name=$(basename "$dep")
+    echo "    '$buck_prefix/$dep:$name',"
+  done
+  echo "  ],"
+
+  # TODO all packages should probably not automatically be PUBLIC, but this mimics how go works normally, so it's ok
+  echo "  visibility=['PUBLIC'],"
+
+  # end the BUCK go_library rule
+  echo ")"
+}
+
+# generate a BUCK file for the given package
+function generate_buck {
+  pkg=$1
+  echo "$pkg"
+  buck="$(package_path "$pkg")/BUCK"
+
+  # find if there are any vendor'ed deps and add them to the list to be processed
+  deps=$(non_std_imports "$pkg")
+  vendor_deps=$(echo "$deps" | grep "vendor/" || :)
+  for dep in $vendor_deps
+  do
+    to_generate="$to_generate
+$dep"
+  done
+
+  # TODO generate a go_library rule for a range of OS's and arch's
+  # explicitly overwrite if exists since we have noclobber on
+  os_arch_lib >| $buck
+}
+
+to_generate=$(all_packages)
+while [ -n "$to_generate" ]
+do
+  pkg=$(echo "$to_generate" | head -1)
+  generate_buck "$pkg"
+  to_generate=$(sed 1d <<< "$to_generate")
+done
+
+popd
