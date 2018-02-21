@@ -18,6 +18,7 @@ This will create `BUCK` files for each package under `~/my-project/third_party/g
 
 Todo
 ----
+Contributions welcome! Just make a PR :)  
 
 This tool is still a little rought around the edges, some (major?) things are unsupported as of now  
 
