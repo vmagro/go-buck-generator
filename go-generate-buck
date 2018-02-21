@@ -101,4 +101,4 @@ do
   to_generate=$(sed 1d <<< "$to_generate")
 done
 
-popd
+popd > /dev/null
