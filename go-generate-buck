@@ -2,9 +2,6 @@
 set -e
 set -o noclobber
 
-# TODO rely on passed GOPATH
-GOPATH=$(pwd)
-
 # figure out the buck prefix based on the $GOPATH relative to the buck root
 # eg: $GOPATH of /home/dev/project/third_party/go will result in a buck prefix of //third_party/go/src (because that's where the BUCK files will live relative to the root)
 pushd "$GOPATH" > /dev/null
