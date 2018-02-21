@@ -20,7 +20,7 @@ function non_std_imports {
   # exclude an import of just 'C' because that means it's trying to import some C code
   # TODO generate cgo_library rule for cgo files
   # nastiness at the end because grep gives exit code of 1 if there are no selections (such as if there are no imports)
-  go list -f '{{join .Imports "\n"}}' "$package" | xargs go list -f '{{if not .Standard}}{{.ImportPath}}{{end}}' > /dev/null | { grep -wv "C" || true; }
+  go list -f '{{join .Imports "\n"}}' "$package" | xargs go list -f '{{if not .Standard}}{{.ImportPath}}{{end}}' 2> /dev/null | { grep -wv "C" || true; }
 }
 
 # get the path to a package (where the BUCK file will be created)
