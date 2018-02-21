@@ -93,7 +93,15 @@ $dep"
   os_arch_lib >| $buck
 }
 
-to_generate=$(all_packages)
+# if there was an explicit argument, build those package(s)
+if [ -n "$1" ];
+then
+  to_generate=$@
+else
+  # otherwise build all the packages
+  to_generate=$(all_packages)
+fi
+
 while [ -n "$to_generate" ]
 do
   pkg=$(echo "$to_generate" | head -1)

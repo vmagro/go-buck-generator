@@ -16,6 +16,9 @@ For a buck project with a root of `~/my-project`, third party Go code stored und
 `env GOPATH=~/my-project/third_party/go go-buck-generator`  
 This will create `BUCK` files for each package under `~/my-project/third_party/go/src`
 
+To build for a specific package or set of packages
+`go-buck-generator "github.com/golang/protobuf"`
+
 Todo
 ----
 Contributions welcome! Just make a PR :)  
